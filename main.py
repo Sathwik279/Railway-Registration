@@ -7,7 +7,11 @@ from train_service import (
     seats_available,
     insert_booking,
     get_station_offset,
-    get_user_bookings
+    get_user_bookings,
+    get_route_order_map,
+    get_connection,
+    get_running_days,
+    get_total_seats
 )
 
 
@@ -102,6 +106,68 @@ def show_my_bookings(user_id):
         )
 
     print("-" * len(header))
+
+def safe_book_ticket(user_id, train_id, journey_date,
+                     train_start_date, from_station_id, to_station_id):
+
+    route_map = get_route_order_map(train_id)
+    new_from = route_map[from_station_id]
+    new_to = route_map[to_station_id]
+    total_seats = get_total_seats(train_id)
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    try:
+        # ---- START TRANSACTION ----
+        conn.start_transaction()
+
+        # ---- LOCK ALL BOOKINGS OF THIS TRAIN RUN ----
+        cur.execute("""
+            SELECT booking_id, from_station_id, to_station_id
+            FROM bookings
+            WHERE train_id=%s AND train_start_date=%s
+            FOR UPDATE
+        """, (train_id, train_start_date))
+
+        bookings = cur.fetchall()
+
+        # ---- COUNT OVERLAPS WHILE LOCK HELD ----
+        overlap = 0
+        for _, f_sid, t_sid in bookings:
+            f = route_map[f_sid]
+            t = route_map[t_sid]
+            if f < new_to and t > new_from:
+                overlap += 1
+
+        if overlap >= total_seats:
+            conn.rollback()
+            print(f"[User {user_id}]  No seats (blocked by lock)")
+            return False
+
+        # ---- INSERT BOOKING ----
+        cur.execute("""
+            INSERT INTO bookings
+            (user_id, train_id, journey_date, train_start_date,
+             from_station_id, to_station_id)
+            VALUES (%s,%s,%s,%s,%s,%s)
+        """, (user_id, train_id, journey_date, train_start_date,
+              from_station_id, to_station_id))
+
+        # ---- COMMIT (RELEASE LOCK) ----
+        conn.commit()
+        print(f"[User {user_id}]  Booking successful (safe)")
+        return True
+
+    except Exception as e:
+        conn.rollback()
+        print("Booking failed:", e)
+        return False
+
+    finally:
+        cur.close()
+        conn.close()
+
 
 
 def main():
