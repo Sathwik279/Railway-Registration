@@ -2,6 +2,8 @@ from db import get_connection
 from datetime import datetime,timedelta
 
 # all these are util methods
+
+# in: (train_id,station_id) returns which day the train comes to this station.
 def get_station_offset(train_id, station_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -12,11 +14,13 @@ def get_station_offset(train_id, station_id):
         WHERE train_id=%s AND station_id=%s
     """, (train_id, station_id))
 
-    offset = cur.fetchone()[0]
+    row = cur.fetchone()
+    offset = row[0] if row else None # if this is not handled we will get None type not subscripable error
     cur.close()
     conn.close()
     return offset
 
+# in: (train_id) returns the days on which this train runs
 def get_running_days(train_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -33,6 +37,7 @@ def get_running_days(train_id):
 
     return days
 
+# just shows all the stations 
 def get_all_stations():
     conn = get_connection()
     cur = conn.cursor()
@@ -45,6 +50,7 @@ def get_all_stations():
     conn.close()
     return stations
 
+#in: (train_id) returns the total seats in a train
 def get_total_seats(train_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -56,6 +62,8 @@ def get_total_seats(train_id):
     conn.close()
     return seats
 
+#in: (train_id) this returns all the stations and the order of those stations from train_routes table
+# one train only one route for now
 def get_route_order_map(train_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -73,7 +81,12 @@ def get_route_order_map(train_id):
     return route
 
 
+
+
+
 # these are the functional methods
+
+# core-method-1 : returns the valid trains bw src and dst as subpath
 def find_candidate_trains(src_station_id,dst_station_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -92,16 +105,20 @@ def find_candidate_trains(src_station_id,dst_station_id):
     conn.close()
     return trains
 
+# core-method-2 : returns boolean whether the train runs on the weekday we got from the src station of user on his journey date
 def is_train_valid_for_date(train_id,src_station_id,journey_date):
+    # for that train for that station ge the day offset
     offset = get_station_offset(train_id,src_station_id)
-    print(offset)
-
+    # get the starting dat of the train
     train_start_date = journey_date-timedelta(days = offset)
-    weekday = train_start_date.isoweekday() # we get day
-    print(weekday,train_start_date)
+    # get teh weekday
+    weekday = train_start_date.isoweekday()
+    # get the running days 
     running_days = get_running_days(train_id)
+    # return the boolean
     return weekday in running_days
 
+# core-method-3 for the src and dst for this train on the start date find the no of seats avaliable
 def seats_available(train_id, train_start_date, from_station_id, to_station_id):
     route_map = get_route_order_map(train_id)
 
