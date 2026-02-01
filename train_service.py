@@ -39,6 +39,7 @@ def get_all_stations():
 
     cur.execute("select station_id,station_name from stations order by station_id")
     stations = cur.fetchall()
+    
 
     cur.close()
     conn.close()
