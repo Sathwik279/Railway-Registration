@@ -109,7 +109,7 @@ def find_candidate_trains(src_station_id,dst_station_id):
 def is_train_valid_for_date(train_id,src_station_id,journey_date):
     # for that train for that station ge the day offset
     offset = get_station_offset(train_id,src_station_id)
-    # get the starting dat of the train
+    # get the starting date of the train
     train_start_date = journey_date-timedelta(days = offset)
     # get teh weekday
     weekday = train_start_date.isoweekday()
