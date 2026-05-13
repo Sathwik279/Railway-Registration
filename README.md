@@ -1,4 +1,4 @@
-# Railway Ticket Booking System
+# Railway Seat Booking System
 
 A Python-based railway ticket booking system that enables users to search for trains, check seat availability, and book tickets.
 
